@@ -1,24 +1,37 @@
 import socket 
 from termcolor import colored
 
-# reciev what server sends and retrun all as string
-def recv_from_server(cli_socket):
-    recv_data = ""
-    while True:
-        data = cli_socket.recv(1024).decode()
-        if len(data) < 1024:
-            recv_data += data
-            break
-        recv_data += data
-    if recv_data:
-        return recv_data
-    else:
+
+# format that is using for decoding and encoding messages, and header size that is used to determine the length of messages
+FORMAT = "utf-8"
+HEADERSIZE = 16
+
+# make a header for every message that is going to be send.
+# this header contain message length so this way by reading header first 
+# server can easily find the length of message
+def send_to_server(client_socket, msg):
+    msg_length = len(msg)
+    headersize = str(msg_length)
+    msg_header = headersize + " " * (HEADERSIZE - len(headersize))
+    message = (msg_header + msg).encode(FORMAT)
+    client_socket.send(message)
+
+
+# reciev what server sends, first read the header that contain the message length and then read the message itself
+def recv_from_server(client_socket):
+    msg_header = client_socket.recv(HEADERSIZE).decode(FORMAT)
+    if msg_header:    
+        msg_length = int(msg_header.strip(' '))
+        data = client_socket.recv(msg_length).decode(FORMAT)
+        if data:
+            return data
         return ""
+
 
 def main():
 
     # target host and port to connect to 
-    thost_ipv4 = "0.0.0.0"
+    thost_ipv4 = "127.0.1.1"
     tport = 4444
 
     # create socket using INET family and tcp type protocol
@@ -39,7 +52,7 @@ def main():
     # get data from client and send it to server, repeat this untill client quit by entering q keyword
     while True:
         data_to_send = input(colored("[*] send data (enter q to quit): ", "cyan"))
-        client_socket.send(data_to_send.encode())
+        send_to_server(client_socket, data_to_send)
         if data_to_send.lower() == 'q' :
             break
 
@@ -47,6 +60,8 @@ def main():
     recv_data = recv_from_server(client_socket)
     if recv_data:
         print(colored(recv_data, "green"))
+
+    client_socket.close()
 
 if __name__ == "__main__":
     main()
